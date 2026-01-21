@@ -1,6 +1,6 @@
 ---
 title: "Kalkulačka fixní ceny ZP"
-subtitle: "Report k výpočtu"
+subtitle: "Report k výpočtu - kompletní data pro Nákup"
 date: "`r Sys.time()`"
 output: pdf_document
 params:
@@ -9,6 +9,7 @@ params:
   datum_od: ""
   datum_do: ""
   profil: NA
+  plot_profil: NULL
   fwd: NA
   otc: NA
   fix_cena: NA
@@ -28,8 +29,9 @@ params:
 ```{r echo=FALSE}
 
 knitr::kable(params$profil, caption = "Profil spotřeby") 
+params$plot_profil
 knitr::kable(params$fwd, caption = "FWD křivka")
-knitr::kable(params$otc, caption = "OTC ceny")
+knitr::kable(params$otc, caption = paste0("OTC ceny ze ", otc_tms))
 
 # "C:/Users/krizova/Documents/R/02 cenoveKalkukacky/_vyvoj/shiny_app/data/22743_SPP_logo spp_final update.jpg"
 
