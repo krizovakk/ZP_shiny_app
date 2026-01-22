@@ -19,6 +19,8 @@ app_online <- TRUE
 
 options(shiny.launch.browser = TRUE)
 
+# Sys.setenv(R_PANDOC = "C:/Program Files/RStudio/resources/app/bin/quarto/bin/tools")
+
 start_date <- as.Date(cut(Sys.Date(), "month")) + months(1) # 1. den nasledujiciho mesice
 
 
@@ -133,6 +135,7 @@ ui <- page_fillable(
 
 
 server <- function(input, output, session) {
+  
   
   # ---- OMEZENI DENNI DOBY PROVOZU APLIKACE ----
   
