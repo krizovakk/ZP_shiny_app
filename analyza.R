@@ -6,21 +6,23 @@ library(readxl)
 
 analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   
-  # tms_now <- Sys.Date()
   tms_now <- Sys.time()
   print(tms_now)
   colnames(profil) <- c("datum", "profilMWh", "mesic", "rok")
   print(head(profil))
   
+  denni <- read_excel(file.path("data","input_denniData.xlsx"), range = "A1:B8", col_names = T)
+  print(denni)
   
-  # conditionDEL2 <- is.Date(delOd)
+   
+  # conditionDEL2 <- is.Date(start)
   # if (conditionDEL2) {
-  #   stop('Zadej platne datum')
+  #   stop('Zadej platne datum OD')
   # }
   # 
-  # conditionDEL <- is.Date(delDo)
+  # conditionDEL <- is.Date(end)
   # if (conditionDEL) {
-  #   stop('Zadej platne datum')
+  #   stop('Zadej platne datum DO')
   # }
 
   
@@ -47,9 +49,13 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
     stop('Neuplna FWD krivka, kontaktuj Nakup.')
   }
 
+  print(head(fwd))
   
   # ---------------------------------------------------------------------------- INPUT :: OTC - OK
   
+  
+  otc_info <- file.info("X:/OTC/CSV/CZ-VTP.csv")
+  otc_tms <- otc_info$mtime
   
   # b <- read.csv(file.path(path, "CZ-VTP.csv"), header = TRUE, sep = ",") # funguje i hostovane - staticky soubor
   b <- read.csv("X:/OTC/CSV/CZ-VTP.csv", header = TRUE, sep = ",") # funguje lokalne - aktualizave 15'
@@ -92,6 +98,8 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
     unite(product, c("cal", "month", "quater", "year"),
           sep = "/", na.rm = T, remove = FALSE)
 
+  print(head(otc))
+  
   
   # ---------------------------------------------------------------------------- CREATE :: frame - OK
   
@@ -101,7 +109,7 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   framePer <- seq(from = frameOd, to = frameDo, by = "month")
   
   delPer <- as.POSIXct(seq(from = delOd, to = delDo, by = "month") %>% head(-1)) # head = maze posledni element (1.1.2027)
-  print(delPer)
+  # print(delPer)
   
   frame <- data.frame(framePer) %>%
     mutate(
@@ -121,14 +129,21 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
     mutate(dodavka = ifelse(framePer %in% delPer, 1, 0)) %>%  
     select(framePer, year, quater, month, now, dodavka, profilMWh, PFC, FX)
   
+  print(head(frame))
+  
   
   # ---------------------------------------------------------------------------- CREATE :: data_vstup - OK
   
   
-  low_spot <- 24.250
-  aktual_spot <- low_spot + 0.35
-  surcharge <- 0.00 
-  bsd <- 1.2
+  low_spot <- denni[[2]][1]
+  aktual_spot <- denni[[2]][3]
+  surcharge <- denni[[2]][0]
+  bsd <- denni[[2]][5]
+  # 
+  # low_spot <- 24.250
+  # aktual_spot <- low_spot + 0.35
+  # surcharge <- 0.00 
+  # bsd <- 1.2
   
   join <- frame %>%
     
@@ -159,7 +174,7 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
            swapPoint = round((FX-low_spot)*1000, 2), 
            FXrecalc0 = aktual_spot+swapPoint/1000, # +surcharge (ale v excelu je 0)
            # FXrecalc = round(FXrecalc0+surcharge, 4),
-           FXrecalc = (FXrecalc0+surcharge),
+           FXrecalc = (FXrecalc0),
            
            cenaEUR = profilMWh*PFCprepoc,
            vazenaCena = profilMWh*FXrecalc,
@@ -171,12 +186,14 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
     select(year, month, dodavka, profilMWh, product, otcPrice, PFCprepoc, cenaEUR, FXrecalc, vazenaCena) %>%
     filter(dodavka == 1) # final df to match table on sheet Kalkulace
   
+  print(head(data_vstup))
+  
   
   # ------------------ kontrola ***
 
   # test
   # data_vstup[11, 6] <- NA
-  # data_vstup[18, 4] <- NA
+  # data_vstup[18, 4] <- -5
 
   conditionOTC <- any(is.na(data_vstup$otcPrice))
   if (conditionOTC) {
@@ -188,6 +205,16 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   conditionPROF <- any(is.na(data_vstup$profilMWh))
   if (conditionPROF) {
     stop('Neuplny profil, zkontroluj vstupni data.')
+  }
+ 
+  conditionZAP <- any(data_vstup$profilMWh < 0)
+  if (conditionZAP) {
+    stop('Zaporna data v profilu, zkontroluj vstupni data.')
+  }
+
+  conditionDUP <- any(duplicated(profil$datum))
+  if (conditionDUP) {
+    stop('V profilu se objevují duplicity, zkontroluj vstupni data.')
   }
 
   
@@ -214,25 +241,28 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   fin_cenaEUR <- ceiling(prodej_eur/0.025) * 0.025 # zaokrouhleni na nejblizsi nejvyssi hranici 0,025
   fin_cenaCZK <- ceiling((fin_cenaEUR*kurz)/0.05) * 0.05 # zaokrouhleni na nejblizsi nejvyssi hranici 0,05
   
+  print("Vypocty probehly :-)")
   
   # ------------------ kontrola ***
   
-  conditionNPF <- naklad_profil<0
+  conditionNPF <- naklad_profil < 0
   if (conditionNPF) {
     print('Zaporny naklad na profil')
   }
-  
+
   
   # ---------------------------------------------------------------------------- CREATE :: marze - IP
   
   
-  marzeMin <- 1.2
-  marzeDop <- 6
+  marzeMin <- denni[[2]][6]
+  marzeDop <- denni[[2]][7]
+  # marzeMin <- 1.2
+  # marzeDop <- 6
   txt_marzeMin <- sprintf("%.2f", marzeMin) # text, zobrazuje cislo s presne 2 decimals
   txt_marzeDop <- sprintf("%.2f", marzeDop)
   
   
-  # ---------------------------------------------------------------------------- RETURN :: fix_cena - OK
+  # ---------------------------------------------------------------------------- TABLE :: fix_cena - OK
   
   
   fix_cena <- data.frame(
@@ -248,14 +278,14 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
       "Předávací cena pro obchod [CZK]",
       "HM1 [€]",
       "Prodejní cena pro zákazníka [€]",
-      "Prodejní cena pro zákazníka [CZK]",
-      "Prumer EUR",
-      "Suma ceny EUR",
-      "Suma vazene ceny",
-      "Nakup",
-      "Prodej",
-      "Kurz",
-      "Naklad na profil"
+      "Prodejní cena pro zákazníka [CZK]"
+    #   "Prumer EUR", # pro testovani, pak odstranit
+    #   "Suma ceny EUR", # pro testovani, pak odstranit
+    #   "Suma vazene ceny", # pro testovani, pak odstranit
+    #   "Nakup", # pro testovani, pak odstranit
+    #   "Prodej", # pro testovani, pak odstranit
+    #   "Kurz", # pro testovani, pak odstranit
+    #   "Naklad na profil" # pro testovani, pak odstranit
     ),
     
     Hodnota = c(
@@ -274,24 +304,69 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
       paste("Minimální:",  round(fin_cenaEUR+marzeMin, 2), 
             " /  Doporučená:",  round(fin_cenaEUR+marzeDop)),
       paste("Minimální:", round(fin_cenaCZK+marzeMin*kurz, 2), 
-            " /  Doporučená:", round(fin_cenaCZK+marzeDop*kurz, 2)),
-      round(mean_PFC, 3),
-      round(suma_cenaEUR, 0),
-      round(suma_vazenaCena, 0),
-      round(nakup, 3),
-      round(prodej_czk, 3),
-      round(kurz, 2),
-      naklad_profil
+            " /  Doporučená:", round(fin_cenaCZK+marzeDop*kurz, 2))
+      # round(mean_PFC, 3), # pro testovani, pak odstranit
+      # round(suma_cenaEUR, 0), # pro testovani, pak odstranit
+      # round(suma_vazenaCena, 0), # pro testovani, pak odstranit
+      # round(nakup, 3), # pro testovani, pak odstranit
+      # round(prodej_czk, 3), # pro testovani, pak odstranit
+      # round(kurz, 2), # pro testovani, pak odstranit
+      # naklad_profil # pro testovani, pak odstranit
     )
   )
   
   colnames(fix_cena) <- NULL
+  
+  
+  # ---------------------------------------------------------------------------- REPORTS :: txt, pdf - DONE
+  
+  # simple txt
   
   on.exit({
     log <- paste(tms_now, obch, zak, suma_profil, delOd, delDo, fin_cenaEUR, sep = ";")
     write(log, "data/kalkulackaZP_log.txt", append = TRUE)
   })
   
+  # pdf pro Nakup
+  
+  timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+  
+  p <- ggplot(profil, aes(datum, profilMWh)) +
+    # geom_line(linewidth = 2, color = "gold") +
+    geom_col(fill = "gold") +
+    labs(x = "měsíc dodávky",
+         y = "profil spotřeby [MWh]",
+         title = "Profil spotřeby klienta") +
+    scale_x_datetime(date_breaks = "1 month", date_labels = "%Y-%m") +
+    scale_y_continuous(breaks = seq(0, 700, by = 50))+
+    theme_light() +
+    theme(axis.text.x = element_text(angle = 90))
+  
+  rmarkdown::render(
+    input = "reportNakup.Rmd",
+    output_file = paste0(path, "pdf_logy/proNakup_VypocetFixCenyZP_report_", timestamp, ".pdf"),
+    output_format = "pdf_document",
+    # output_dir = output_dir,
+    params = list(
+      obchodnik = obch,
+      zakaznik = zak,
+      datum_od = delOd,
+      datum_do = delDo,
+      profil = profil,
+      plot_profil = p,
+      fwd = fwd,
+      otc = otc,
+      fix_cena = fix_cena
+    ),
+    # envir = new.env(parent = globalenv())
+    # ),
+    quiet = TRUE
+  )
+
+  
+  # ---------------------------------------------------------------------------- RETURN :: fix_cena - OK
+  
+    
   return(list(
     profil = profil,
     fwd = fwd,

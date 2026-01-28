@@ -9,6 +9,7 @@ params:
   datum_od: ""
   datum_do: ""
   profil: NA
+  plot_profil: NULL
   fwd: NA
   otc: NA
   fix_cena: NA
@@ -28,6 +29,7 @@ params:
 ```{r echo=FALSE}
 
 knitr::kable(params$profil, caption = "Profil spotřeby") 
+# params$plot_profil
 # knitr::kable(params$fwd, caption = "FWD křivka") 
 # knitr::kable(params$otc, caption = "OTC ceny") 
 

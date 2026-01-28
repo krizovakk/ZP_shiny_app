@@ -10,7 +10,7 @@ print(head(profil))
 # pro test
 
 delOd <- as.Date("2026-02-01")
-delDo <- as.Date("2030-01-01")
+delDo <- as.Date("2028-03-01")
 
 profil <- read_excel("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/_vyvoj/vstupy/input_profil.xlsx")
 
