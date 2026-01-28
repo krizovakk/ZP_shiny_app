@@ -39,6 +39,15 @@ knitr::kable(params$otc, caption = paste0("OTC ceny ze ", otc_tms))
 
 # Výsledná fixní cena
 
+**Prumer EUR:** `r mean_PFC` 
+**Suma ceny EUR:** `r suma_cenaEUR` 
+**Suma vazene ceny:** `r suma_vazenaCena` 
+**Nakup:** `r nakup` 
+**Prodej:** `r prodej_czk` 
+**Kurz:** `r kurz` 
+**Naklad na profil:** `r naklad_profil` 
+
+
 ```{r echo=FALSE}
 knitr::kable(params$fix_cena, caption = "Fixní cena")
 

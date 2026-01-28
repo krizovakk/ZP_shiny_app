@@ -278,14 +278,14 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
       "Předávací cena pro obchod [CZK]",
       "HM1 [€]",
       "Prodejní cena pro zákazníka [€]",
-      "Prodejní cena pro zákazníka [CZK]",
-      "Prumer EUR", # pro testovani, pak odstranit
-      "Suma ceny EUR", # pro testovani, pak odstranit
-      "Suma vazene ceny", # pro testovani, pak odstranit
-      "Nakup", # pro testovani, pak odstranit
-      "Prodej", # pro testovani, pak odstranit
-      "Kurz", # pro testovani, pak odstranit
-      "Naklad na profil" # pro testovani, pak odstranit
+      "Prodejní cena pro zákazníka [CZK]"
+    #   "Prumer EUR", # pro testovani, pak odstranit
+    #   "Suma ceny EUR", # pro testovani, pak odstranit
+    #   "Suma vazene ceny", # pro testovani, pak odstranit
+    #   "Nakup", # pro testovani, pak odstranit
+    #   "Prodej", # pro testovani, pak odstranit
+    #   "Kurz", # pro testovani, pak odstranit
+    #   "Naklad na profil" # pro testovani, pak odstranit
     ),
     
     Hodnota = c(
@@ -304,14 +304,14 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
       paste("Minimální:",  round(fin_cenaEUR+marzeMin, 2), 
             " /  Doporučená:",  round(fin_cenaEUR+marzeDop)),
       paste("Minimální:", round(fin_cenaCZK+marzeMin*kurz, 2), 
-            " /  Doporučená:", round(fin_cenaCZK+marzeDop*kurz, 2)),
-      round(mean_PFC, 3), # pro testovani, pak odstranit
-      round(suma_cenaEUR, 0), # pro testovani, pak odstranit
-      round(suma_vazenaCena, 0), # pro testovani, pak odstranit
-      round(nakup, 3), # pro testovani, pak odstranit
-      round(prodej_czk, 3), # pro testovani, pak odstranit
-      round(kurz, 2), # pro testovani, pak odstranit
-      naklad_profil # pro testovani, pak odstranit
+            " /  Doporučená:", round(fin_cenaCZK+marzeDop*kurz, 2))
+      # round(mean_PFC, 3), # pro testovani, pak odstranit
+      # round(suma_cenaEUR, 0), # pro testovani, pak odstranit
+      # round(suma_vazenaCena, 0), # pro testovani, pak odstranit
+      # round(nakup, 3), # pro testovani, pak odstranit
+      # round(prodej_czk, 3), # pro testovani, pak odstranit
+      # round(kurz, 2), # pro testovani, pak odstranit
+      # naklad_profil # pro testovani, pak odstranit
     )
   )
   
