@@ -226,7 +226,7 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, acq1, acq2, acq3, acq4
     mutate(inp = acq_map[match(as.character(facq), names(acq_map))], 
            check = acq == inp)
   
-  conditionACQ <- any(df_acq$check == F)
+  conditionACQ <- any(df_acq$check == F)|any(is.na(df_acq$check))
   if (conditionACQ) {
     stop('Zadane ACQ nesouhlasi se souctem v profilu, zkontrolujte vstupni data.')
   }
