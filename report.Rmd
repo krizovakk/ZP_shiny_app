@@ -12,6 +12,7 @@ params:
   plot_profil: NULL
   fwd: NA
   otc: NA
+  note: NA
   fix_cena: NA
 ---
 
@@ -45,3 +46,7 @@ knitr::kable(params$fix_cena, caption = "Fixní cena")
 ```
 
 *Předávací ani prodejní cena neobsahují náklad na BSD a toleranci.*
+
+# Poznámka 
+
+`r params$note` 

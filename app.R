@@ -29,19 +29,13 @@ start_date <- as.Date(cut(Sys.Date(), "month")) + months(1) # 1. den nasledujici
 
 ui <- page_fillable(
   
-  # add_busy_spinner(spin = "fading-circle", color = "red"),
-  
   titlePanel(
     
-    # puvodni funkcni s logem
     tags$div(
       style = "display:flex; align-items:center; gap:20px;",
       tags$img(
         src = "22743_SPP_logo spp_final update.jpg",
-        height = "50px"
-        # src = "flowers-wolf.gif",
-        # height = "200px"
-      ),
+        height = "50px"),
       span("Kalkulačka fixní ceny ZP")
     )
   ),
@@ -52,83 +46,96 @@ ui <- page_fillable(
     
     card( 
       
-      card_header("Vstupní informace"),
+      card_header(tags$span("Vstupní informace", class = "fs-5", style = "color: #d4af37;")),
       
-      textInput( 
-        inputId = "text1", 
-        label = tagList("Obchodník", 
-                        span("*", style = "color:red")), 
-        placeholder = ""
-      ),
+      fluidRow(
+        
+        column(3, textInput(
+          "text1", tagList("Obchodník",span("*", style = "color:red")), placeholder = "")),
+        column(3, textInput(
+          "text2",tagList("Zákazník",span("*", style = "color:red")), placeholder = ""))),
       
-      textInput( 
-        inputId = "text2", 
-        label = tagList("Zákazník", 
-                        span("*", style = "color:red")),
-        placeholder = "",
-        value = ""
-      ) %>% 
-        tagAppendAttributes(required = "required" # snaha o nastaveni povinneho pole
-        ),
+      dateRangeInput(
+        inputId = "date",
+        label = "Období dodávky pro vytvoření nabídky", 
+        separator = " - ",
+        start = start_date,
+        end = start_date %m+% months(1),
+        min = start_date,                      # nepůjde zadat dřívější datum
+        # max = ceiling_date(Sys.Date() %m+% years(3), "month")
+        max <- floor_date(Sys.Date() %m+% years(4), "year")), # 3 cele roky doprecdu
       
       tagList(
-        tags$div("Nahrajte profil ve formátu XLS/XLSX. 
+        tags$div("Vyplňte ACQ pro relevantní období.",
+                 style = "color: grey;
+                            margin-top: 15px;
+                            margin-bottom: 0px;
+                            font-style: italic;
+                            font-size: 0.85em;")),
+      
+      fluidRow(
+        
+        column(3, numericInput("acq1", "ACQ 2026", "")),
+        column(3, numericInput("acq2", "ACQ 2027", "")),
+        column(3, numericInput("acq3", "ACQ 2028", "")),
+        column(3, numericInput("acq4", "ACQ 2029", ""))),
+      
+      tagList(
+        tags$div("Nahrajte profil ve formátu XLS/XLSX.\n
                  Soubor musí obsahovat dva sloupce: datum a profil v MWh.", 
-                 style = "color: grey; margin-bottom: 5px;"),
-        
-        fileInput(
-          inputId = "upload", 
-          label = NULL,         # skryjeme původní label
-          buttonLabel = "Nahraj profil",
-          placeholder = "",
-          accept = c(".xls", ".xlsx")
-        ),
-        
-        plotOutput("plot")
-      )
-    ),
+                 style = "color: grey;
+                          margin-top: 10px;
+                          margin-bottom: 0px;
+                          font-style: italic;
+                          font-size: 0.85em;")),
+      
+      fileInput(
+        inputId = "upload", 
+        label = NULL,         # skryjeme původní label
+        buttonLabel = "Nahraj profil",
+        placeholder = "",
+        accept = c(".xls", ".xlsx")),
+      
+      plotOutput("plot")
+      
+    ), # konec prvni karty
     
     card( 
       
-      card_header("Výpočet ceny"),
-      
-      tags$div(
-        tags$label("Období dodávky"),
-        tags$div(style = "color: grey; margin-top: 10px; margin-bottom: 10px;",
-                 "Vyberte období, pro které chcete vytvořit nabídku."),
-        dateRangeInput(
-          inputId = "date",
-          label = NULL,     # skryjeme původní label
-          separator = " - ",
-          start = start_date,
-          end = start_date %m+% months(1),
-          min = start_date,                      # nepůjde zadat dřívější datum
-          # max = ceiling_date(Sys.Date() %m+% years(3), "month")
-          max <- floor_date(Sys.Date() %m+% years(4), "year") # 3 cele roky doprecdu
-        )
-      ),
-      
+      card_header(tags$span("Výpočet ceny", class = "fs-5", style = "color: #d4af37;")),
       
       actionButton(
         inputId = "run", 
         label = "Výpočet ceny"),
+      
       DT::DTOutput("results") %>% withSpinner(type = 6, color = "gold"),
       
-      # textAreaInput( 
-      #   inputId = "text", 
-      #   label = "Poznámka", 
-      #   value = "(možnost napsat komentář do pdf)"), 
-      # 
       
       HTML('<span style="color:DarkGoldenRod">Předávací ani prodejní cena neobsahují náklad na BSD a toleranci.</span>'),
+      
+      
+      fluidRow(
+        column(12,
+               textAreaInput(
+                 inputId = "note",
+                 label = "Poznámka do PDF reportu",
+                 value = "",
+                 rows = 3))),
+      
+      # textAreaInput(
+      #   inputId = "note",
+      #   label = "Poznámka do PDF reportu",
+      #   value = "",
+      #   cols = 200,
+      #   rows = 3),
       
       downloadButton("downloadReport", 
                      label = "Stáhnout PDF report")
       
       
-    )
-  )
-)
+    ) # konec druhe karty
+  ) # konec layout_columns
+) # konec UI
 
 
 # ---------------------------------------------------- SERVER
@@ -146,6 +153,9 @@ server <- function(input, output, session) {
   outside_hours <- hodina < 8 || hodina >= 18
   outside_weekdays <- den %in% c("Saturday", "Sunday")
   
+  otc_info <- file.info("X:/OTC/CSV/CZ-VTP.csv")
+  otc_tms <- otc_info$mtime
+  
   if (!app_online) {
     showModal(modalDialog(
       title = "Aplikace je z provozních důvodů momentálně nedostupná",
@@ -160,10 +170,20 @@ server <- function(input, output, session) {
   if (outside_hours || outside_weekdays) {
     showModal(modalDialog(
       title = "Aplikace není k dispozici",
-      "Aplikace je dostupná v pracovní dny  od 8:00 do 15:00.",
+      "Aplikace je dostupná v pracovní dny  od 10:30 do 15:00.",
       easyClose = FALSE,
-      footer = NULL
-    ))
+      footer = NULL))
+    
+    session$close()
+    return()
+  }
+  
+  if (ted-otc_tms > 60) { # timediff se pocita v minutach
+    showModal(modalDialog(
+      title = "Aplikace není k dispozici",
+      "Vstupní data nejsou aktuální, prosím, kontaktujte Nákupní oddělení.",
+      easyClose = FALSE,
+      footer = NULL))
     
     session$close()
     return()
@@ -175,7 +195,7 @@ server <- function(input, output, session) {
   data_upload <- reactive({
     req(input$upload)
     profil <- read_excel(input$upload$datapath)
-    profil <- profil[, 1:2] # rande A:B
+    profil <- profil[, 1:2] # range A:B
     profil
   })
   
@@ -204,55 +224,16 @@ server <- function(input, output, session) {
     
     start <- as.Date(format(input$date[1], "%Y-%m-01"))
     end   <- as.Date(format(input$date[2], "%Y-%m-01"))
-
+    
     updateDateRangeInput( # uprava datumu na cele mesice
       session,
       "date",
       start = start,
       end = end
     )
-
+    
     delOd <- start
     delDo <- end
-    
-    # if (input$date[1] < min || input$date[2] > max) {
-    #   
-    #   showNotification(
-    #     paste0(
-    #       "Zvolené období musí být mezi ",
-    #       format(min, "%d.%m.%Y"),
-    #       " a ",
-    #       format(max, "%d.%m.%Y")
-    #     ),
-    #     type = "error",
-    #     duration = 6
-    #   )
-    #   
-    #   # návrat na platné hodnoty
-    #   updateDateRangeInput(
-    #     session,
-    #     "date",
-    #     start = min,
-    #     end = start %m+% months(1)
-    #   )
-    #   
-    #   return()  # zastaví další zpracování
-    # }
-    # 
-    # # zaokrouhlení na celé měsíce
-    # start <- as.Date(format(input$date[1], "%Y-%m-01"))
-    # end   <- as.Date(format(input$date[2], "%Y-%m-01"))
-    # 
-    # updateDateRangeInput(
-    #   session,
-    #   "date",
-    #   start = start,
-    #   end = end
-    # )
-    # 
-    # delOd <- start
-    # delDo <- end
-    
   })
   
   # ---- SPUSTENI VYPOCTU ----
@@ -283,9 +264,11 @@ server <- function(input, output, session) {
       end,
       obch = input$text1,
       zak  = input$text2,
-      path = "data/"
-    )
-    
+      acq1  = input$acq1,
+      acq2  = input$acq2,
+      acq3  = input$acq3,
+      acq4  = input$acq4,
+      path = "data/")
   })
   
   output$results <- DT::renderDT({
@@ -301,10 +284,7 @@ server <- function(input, output, session) {
       options = list(
         dom = 't',       # odstraní paging a search
         ordering = FALSE,
-        paging = FALSE
-      )
-    )
-    
+        paging = FALSE))
   })
   
   output$downloadReport <- downloadHandler(
@@ -329,13 +309,12 @@ server <- function(input, output, session) {
           # plot_profil = output$plot,
           fwd = result$fwd,
           otc = result$otc,
-          fix_cena = result$fix_cena
-        ),
-        envir = new.env(parent = globalenv())
-      )
+          fix_cena = result$fix_cena,
+          note = input$note),
+        envir = new.env(parent = globalenv()))
     }
   )
-}
+} # konec serveru
 
 
 # ---------------------------------------------------- APP

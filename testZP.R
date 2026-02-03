@@ -12,13 +12,13 @@ print(head(profil))
 delOd <- as.Date("2026-02-01")
 delDo <- as.Date("2028-03-01")
 
-profil <- read_excel("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/_vyvoj/vstupy/input_profil.xlsx")
+profil <- read_excel("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/ZP/ZP_shiny_app/data/input_profil.xlsx")
 
 
 # ---------------------------------------------------------------------------- INPUT :: forward - OK
 
 # test
-a <- read_excel("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/_vyvoj/shiny_app/data/input_fwd.xlsx")
+a <- read_excel("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/ZP/ZP_shiny_app/data/input_fwdKrivka.xlsx", sheet = "Rentry")
 a$mesic <- as.Date(a$mesic, origin = "1899-12-30")
 fwd <- a %>% 
   rename("PFC" = NCG, "FX" = 'FX rate') %>% 
@@ -44,7 +44,7 @@ if (conditionFWD) {
 # ---------------------------------------------------------------------------- INPUT :: OTC - OK
 
 
-b <- read.csv("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/_vyvoj/shiny_app/data/CZ-VTP.csv", header = TRUE, sep = ",") # test
+b <- read.csv("C:/Users/krizova/Documents/R/02 cenoveKalkukacky/ZP/ZP_shiny_app/data/CZ-VTP.csv", header = TRUE, sep = ",") # test
 otc <- b %>%
   select("season" = 1, "price" = 2) %>%
   filter(str_detect(season, "^CZ")) %>%
@@ -101,6 +101,7 @@ otc <- b %>%
 frameOd <- as.Date("2026-01-01")
 frameDo <- as.Date("2029-12-31")
 framePer <- seq(from = frameOd, to = frameDo, by = "month")
+factor <- c("acq1", "acq2", "acq3", "acq4")
 
 delPer <- as.POSIXct(seq(from = delOd, to = delDo, by = "month") %>% head(-1)) # head = maze posledni element (1.1.2027)
 print(delPer)
@@ -116,13 +117,13 @@ frame <- data.frame(framePer) %>%
       month <= 12 ~ "Q4"
     ),
     now = ifelse(year == year(tms_now) & month == month(tms_now), 1, 0), # jaky mesic je ted
-    dodavka = ifelse(framePer %in% seq(from = delOd, to = delDo, by = "month"), 1, 0)
+    dodavka = ifelse(framePer %in% seq(from = delOd, to = delDo, by = "month"), 1, 0),
+    facq = rep(c("acq1", "acq2", "acq3", "acq4"), each = 12)
   ) %>%
   left_join(profil, by = c("framePer" = "datum")) %>%
   left_join(fwd, by = c("framePer" = "mesic")) %>% 
   mutate(dodavka = ifelse(framePer %in% delPer, 1, 0)) %>%  
-  select(framePer, year, quater, month, now, dodavka, profilMWh, PFC, FX)
-
+  select(framePer, year, quater, month, now, dodavka, facq, profilMWh, PFC, FX) 
 
 # ---------------------------------------------------------------------------- CREATE :: data_vstup - OK
 
@@ -171,7 +172,7 @@ join <- frame %>%
                              TRUE ~ paste0(month, "/", year)))
 
 data_vstup <- join %>%
-  select(year, month, dodavka, profilMWh, product, otcPrice, PFCprepoc, cenaEUR, FXrecalc, vazenaCena) %>%
+  select(year, month, dodavka, facq, profilMWh, product, otcPrice, PFCprepoc, cenaEUR, FXrecalc, vazenaCena) %>%
   filter(dodavka == 1) # final df to match table on sheet Kalkulace
 
 conditionPROF <- any(is.na(data_vstup$profilMWh))
@@ -179,14 +180,24 @@ if (conditionPROF) {
   stop('Neuplny profil')
 }
 
+acq_map <- c(
+  acq1 = acq1,
+  acq2 = acq2,
+  acq3 = acq3,
+  acq4 = acq4
+)
+
+df_acq <- data_vstup %>% 
+  group_by(facq) %>% 
+  summarise(acq = round(sum(profilMWh), 0)) %>% 
+  ungroup() %>% 
+  mutate(inp = acq_map[match(as.character(facq), names(acq_map))], 
+         check = acq == inp)
 
 # test
-
-conditionOTC <- any(is.na(data_vstup$otcPrice))
-if (conditionOTC) {
-  # stop('Chybi OTC cena')
-  prod <- data_vstup$product[is.na(data_vstup$otcPrice)]
-  stop(paste('Chybi OTC cena pro', prod))
+conditionACQ <- !is.na(acq1))  
+if (conditionACQ) {
+  stop('Zadane ACQ nesouhlasi se souctem v profilu')
 }
 
 
