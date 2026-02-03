@@ -4,7 +4,7 @@
 library(tidyverse)
 library(readxl)
 
-analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
+analyza_data <- function(profil, delOd, delDo, obch, zak, acq1, acq2, acq3, acq4, path = "data/") {
   
   tms_now <- Sys.time()
   print(tms_now)
@@ -25,6 +25,11 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   #   stop('Zadej platne datum DO')
   # }
 
+  head(profil)
+  print(acq1)
+  print(acq2)
+  print(acq3)
+  print(acq4)
   
   # ---------------------------------------------------------------------------- INPUT :: forward - OK
   
@@ -122,12 +127,13 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
         month <= 12 ~ "Q4"
       ),
       now = ifelse(year == year(tms_now) & month == month(tms_now), 1, 0), # jaky mesic je ted
-      dodavka = ifelse(framePer %in% seq(from = delOd, to = delDo, by = "month"), 1, 0)
+      dodavka = ifelse(framePer %in% seq(from = delOd, to = delDo, by = "month"), 1, 0),
+      facq = rep(c("acq1", "acq2", "acq3", "acq4"), each = 12)
     ) %>%
     left_join(profil, by = c("framePer" = "datum")) %>%
     left_join(fwd, by = c("framePer" = "mesic")) %>% 
     mutate(dodavka = ifelse(framePer %in% delPer, 1, 0)) %>%  
-    select(framePer, year, quater, month, now, dodavka, profilMWh, PFC, FX)
+    select(framePer, year, quater, month, now, dodavka, facq, profilMWh, PFC, FX)
   
   print(head(frame))
   
@@ -139,11 +145,6 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   aktual_spot <- denni[[2]][3]
   surcharge <- denni[[2]][0]
   bsd <- denni[[2]][5]
-  # 
-  # low_spot <- 24.250
-  # aktual_spot <- low_spot + 0.35
-  # surcharge <- 0.00 
-  # bsd <- 1.2
   
   join <- frame %>%
     
@@ -183,7 +184,7 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
                                TRUE ~ paste0(month, "/", year)))
   
   data_vstup <- join %>%
-    select(year, month, dodavka, profilMWh, product, otcPrice, PFCprepoc, cenaEUR, FXrecalc, vazenaCena) %>%
+    select(year, month, dodavka, facq, profilMWh, product, otcPrice, PFCprepoc, cenaEUR, FXrecalc, vazenaCena) %>%
     filter(dodavka == 1) # final df to match table on sheet Kalkulace
   
   print(head(data_vstup))
@@ -198,25 +199,39 @@ analyza_data <- function(profil, delOd, delDo, obch, zak, path = "data/") {
   conditionOTC <- any(is.na(data_vstup$otcPrice))
   if (conditionOTC) {
     prod <- data_vstup$product[is.na(data_vstup$otcPrice)]
-    stop(paste0("Momentalne neni dostupna vstupni cena pro ", prod, ". Zkus vypocet znovu za 15 min."))
+    stop(paste0("Momentalne neni dostupna vstupni cena pro ", prod, ". Zkuste vypocet znovu za 15 min."))
     # stop("Chybi vstupni cena pro vypocet.")
   }
  
   conditionPROF <- any(is.na(data_vstup$profilMWh))
   if (conditionPROF) {
-    stop('Neuplny profil, zkontroluj vstupni data.')
+    stop('Neuplny profil, zkontrolujte vstupni data.')
   }
  
   conditionZAP <- any(data_vstup$profilMWh < 0)
   if (conditionZAP) {
-    stop('Zaporna data v profilu, zkontroluj vstupni data.')
+    stop('Zaporna data v profilu, zkontrolujte vstupni data.')
   }
 
   conditionDUP <- any(duplicated(profil$datum))
   if (conditionDUP) {
-    stop('V profilu se objevují duplicity, zkontroluj vstupni data.')
+    stop('V profilu se objevují duplicity, zkontrolujte vstupni data.')
   }
 
+  acq_map <- c(acq1 = acq1, acq2 = acq2, acq3 = acq3, acq4 = acq4)
+  df_acq <- data_vstup %>% 
+    group_by(facq) %>% 
+    summarise(acq = round(sum(profilMWh), 0)) %>% 
+    ungroup() %>% 
+    mutate(inp = acq_map[match(as.character(facq), names(acq_map))], 
+           check = acq == inp)
+  
+  conditionACQ <- any(df_acq$check == F)
+  if (conditionACQ) {
+    stop('Zadane ACQ nesouhlasi se souctem v profilu, zkontrolujte vstupni data.')
+  }
+
+  print(df_acq)
   
   # ---------------------------------------------------------------------------- CALCULATE :: fix_cena - OK
   
